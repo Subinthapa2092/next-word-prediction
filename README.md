@@ -1,188 +1,609 @@
-# Next-Word Prediction (SimpleRNN vs LSTM vs GRU)
+# Next-Word Prediction: GRU
 
-A phone-keyboard-style next-word predictor: type a sentence, get five ranked suggestions for what comes next, or for how to finish the word you're mid-typing. Built to compare three recurrent architectures on the exact same data and pick a winner for production.
+A phone-keyboard-style next-word predictor built with a GRU neural network.
 
-Dataset: **SwiftKey / HC Corpora** — blogs, news and Twitter text (en_US), the real corpus SwiftKey released for exactly this task, via Coursera's Data Science Specialization capstone. Mixing three registers (long-form blogs, edited news, short noisy tweets) matters here: a model trained only on 19th-century prose or only on one register won't generalize to how people actually type.
+Given a sentence, the model predicts the most likely words that come next. It also supports mid-word completion, similar to a mobile keyboard.
 
-> **License note:** this dataset is free and widely used for research, learning and portfolio projects like this one. Its terms for a shipped commercial product aren't spelled out as a permissive license (e.g. MIT/CC-BY), so if this ever becomes a commercial app, swap in something with clearer commercial terms — WikiText-103, or your own collected user text.
-
-This is the companion project to the article series *[RNN / LSTM / GRU From First Principles](#)*: theory in the articles, this repo is the implementation.
+This project is part of my RNN / LSTM / GRU learning series, where the concepts are explained from first principles and then implemented here as a complete machine-learning project.
 
 ## What it does
 
-Given text like `"i want to go to the "`, the model reads the last few words and ranks every word in its vocabulary by how likely it is to come next. The app shows the top 5. If you're mid-word (`"i want to g"`), it instead ranks completions that start with `g`.
+For a prompt such as:
 
-```
-"i want to go to the"
-        │
-   clean + tokenize
-        │
-  ["i","want","to","go","to","the"]
-        │
-   token ids (vocab lookup)
-        │
-      Embedding
-        │
-    LSTM / GRU / SimpleRNN
-        │
-     Dense (linear layer)
-        │
-      softmax
-        │
-  probability per word  →  top 5 suggestions
+```text
+i want to go to the
 ```
 
-## Results
+the model uses the previous words as context and returns the top 5 predicted next words.
 
-Run `notebooks/05_comparison.ipynb` to fill this in with your own numbers — do not trust numbers you haven't produced yourself.
+It also supports incomplete words:
 
-| Model | Parameters | Top-1 accuracy | Top-5 accuracy | Perplexity | Training time |
-|---|---|---|---|---|---|
-| SimpleRNN | | | | | |
-| LSTM | | | | | |
-| GRU | | | | | |
+```text
+i want to g
+```
 
-The notebook also writes this table to `outputs/results.md` and saves comparison charts to `outputs/model_comparison.png` and `outputs/validation_curves_comparison.png`.
+In this case, it returns word completions beginning with `g`.
 
-`config.PRODUCTION_MODEL` (env var `PRODUCTION_MODEL`) selects which trained model the app serves. Perplexity is the deciding metric; top-5 accuracy is what users feel; training time and parameter count break ties.
+The prediction pipeline is:
+
+```text
+Input text
+    │
+    ▼
+Clean + tokenize
+    │
+    ▼
+Token IDs
+    │
+    ▼
+Embedding
+    │
+    ▼
+GRU
+    │
+    ▼
+Dropout
+    │
+    ▼
+Dense layer
+    │
+    ▼
+Softmax
+    │
+    ▼
+Word probabilities
+    │
+    ▼
+Top 5 suggestions
+```
+
+## Current model
+
+The current implementation uses:
+
+```text
+Embedding
+    ↓
+GRU
+    ↓
+Dropout
+    ↓
+Dense
+    ↓
+Softmax
+```
+
+The GRU uses update and reset gates to control how information is retained and forgotten over the sequence.
+
+Compared with an LSTM, a GRU combines the cell and hidden state and uses fewer gates, giving it a simpler architecture and generally fewer parameters.
+
+## Dataset
+
+The project uses the **SwiftKey / HC Corpora** dataset from the Coursera Data Science Specialization capstone.
+
+The corpus contains three different types of English text:
+
+* Blogs
+* News
+* Twitter
+
+Using multiple registers makes the task more representative of real-world typing than training on a single style of text.
+
+The raw dataset is not committed to this repository.
+
+### Dataset terms
+
+The dataset is widely used for learning and research projects, but its terms should be checked carefully before using it in a commercial product.
+
+For a commercial deployment, use a dataset with clearly defined commercial-use permissions, such as an appropriately licensed public dataset or your own collected text with the required consent and permissions.
 
 ## Project structure
 
-```
+```text
 next-word-prediction/
-  data/
-    raw/              downloaded corpus (gitignored)
-    processed/        cached train/val/test windows + stats.json (gitignored)
-  models/              tokenizer.json + <kind>.keras checkpoints (gitignored)
-  notebooks/
-    01_eda.ipynb              corpus stats, sentence lengths, Zipf's law, vocab coverage
-    02_preprocessing.ipynb    clean → tokenize → ids → sliding windows, step by step
-    03_lstm.ipynb             train + evaluate the LSTM
-    04_gru.ipynb              train + evaluate the GRU
-    05_comparison.ipynb       SimpleRNN vs LSTM vs GRU, side by side
-  outputs/             training curves, metrics.json, comparison charts (gitignored)
-  src/
-    preprocess.py      cleaning, tokenizing, the Vocabulary class
-    dataset.py         sliding-window pair construction, train/val/test splits
-    model.py           build_model(kind, ...) — the only thing that changes is the recurrent layer
-    train.py           training script / CLI, writes metrics + training curves
-    predict.py         Predictor — the inference class the app and notebooks both use
-    utils.py           seeding, metrics file, plotting
-  static/              style.css, app.js for the web UI
-  templates/           index.html
-  tests/               pytest suite (36 tests): preprocessing, model, predictor, API
-  scripts/
-    download_data.py   downloads the SwiftKey archive, extracts it, builds data/raw/corpus.txt
-    build_corpus.py    samples + mixes blogs/news/twitter without re-downloading
-  app.py               FastAPI app (web UI + JSON API)
-  config.py            every path and hyperparameter, overridable via env vars
-  Dockerfile, docker-compose.yml
-  requirements.txt, requirements-dev.txt
-  .github/workflows/ci.yml   lint + test + docker build on every push
+│
+├── data/
+│   ├── raw/                  # downloaded corpus (gitignored)
+│   └── processed/            # processed datasets and statistics (gitignored)
+│
+├── models/
+│   ├── tokenizer.json
+│   └── gru.keras             # trained GRU checkpoint (gitignored)
+│
+├── notebooks/
+│   ├── 01_eda.ipynb
+│   ├── 02_preprocessing.ipynb
+│   ├── 03_lstm.ipynb
+│   ├── 04_gru.ipynb
+│   └── 05_comparison.ipynb
+│
+├── outputs/
+│   ├── gru_training_curves.png
+│   ├── gru_example_prediction.png
+│   ├── metrics.json
+│   └── ...
+│
+├── src/
+│   ├── preprocess.py         # cleaning, tokenization, vocabulary
+│   ├── dataset.py            # windows and train/validation/test splits
+│   ├── model.py              # model architecture
+│   ├── train.py              # training pipeline
+│   ├── predict.py            # inference and prediction
+│   └── utils.py              # utilities and metrics
+│
+├── static/
+│   ├── style.css
+│   └── app.js
+│
+├── templates/
+│   └── index.html
+│
+├── tests/
+│   └── ...
+│
+├── scripts/
+│   ├── download_data.py
+│   └── build_corpus.py
+│
+├── app.py                    # FastAPI application
+├── config.py                 # paths and hyperparameters
+├── Dockerfile
+├── docker-compose.yml
+├── requirements.txt
+├── requirements-dev.txt
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 ## Setup
 
+Clone the repository:
+
 ```bash
 git clone <your-repo-url>
 cd next-word-prediction
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
+
+Create a virtual environment:
+
+```bash
+python -m venv .venv
+```
+
+Activate it on Linux/macOS:
+
+```bash
+source .venv/bin/activate
+```
+
+On Windows:
+
+```bash
+.venv\Scripts\activate
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements-dev.txt
-
-python scripts/download_data.py        # ~560 MB download, builds data/raw/corpus.txt
 ```
 
-By default this samples 150,000 lines from each of blogs/news/twitter (450k lines total) — enough for a real model without an all-day CPU training run. Adjust with `--lines-per-source`:
+Download and prepare the dataset:
 
 ```bash
-python scripts/download_data.py --lines-per-source 400000   # bigger corpus, longer training
-python scripts/download_data.py --skip-download             # already have the zip; just re-mix
+python scripts/download_data.py
 ```
 
-If the automatic download is blocked in your environment (some networks or sandboxes disallow direct file downloads), grab the archive yourself from the URL printed in the error message, save it to `data/raw/Coursera-SwiftKey.zip`, and re-run with `--skip-download`.
+By default, the corpus-building script samples a subset of the blogs, news and Twitter data so that training remains practical on a normal machine.
 
-To use your own text instead, drop any plain-text file in `data/raw/` and pass `--data` to training, or point `config.DEFAULT_CORPUS` at it — no code changes needed, since `split_sentences`/`clean_text` handle both plain prose and social-media noise (URLs, @mentions, hashtags).
-
-## Train
+You can increase the number of lines per source:
 
 ```bash
-python -m src.train --model lstm
+python scripts/download_data.py --lines-per-source 400000
+```
+
+If the dataset has already been downloaded:
+
+```bash
+python scripts/download_data.py --skip-download
+```
+
+## Train the GRU
+
+The GRU can be trained directly from the command line:
+
+```bash
 python -m src.train --model gru
-python -m src.train --model rnn
 ```
 
-Each run saves `models/<kind>.keras`, updates `models/tokenizer.json`, appends to `outputs/metrics.json`, and writes `outputs/<kind>_training_curves.png`. Or run the notebooks in order (`01` → `05`) for the full walkthrough with plots and commentary.
+The training pipeline uses:
 
-Key hyperparameters (see `config.py`, all overridable by environment variable):
+* Early stopping
+* Learning-rate reduction on validation-loss plateaus
+* A fixed random seed for reproducibility
+* Validation and test evaluation
+* Automatic checkpoint saving
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `SEQ_LEN` | 6 | words of context the model sees |
-| `MAX_VOCAB` | 10000 | vocabulary cap, including `<pad>` and `<unk>` |
-| `MIN_FREQ` | 2 | words rarer than this become `<unk>` |
-| `EMBED_DIM` | 128 | embedding size |
-| `UNITS` | 256 | recurrent layer width |
-| `EPOCHS` | 30 | upper bound; early stopping usually stops sooner |
+The trained model is saved as:
 
-## Run the app
+```text
+models/gru.keras
+```
+
+Training metrics are written to:
+
+```text
+outputs/metrics.json
+```
+
+Training curves are saved to:
+
+```text
+outputs/gru_training_curves.png
+```
+
+## GRU notebook
+
+The complete GRU walkthrough is available in:
+
+```text
+notebooks/04_gru.ipynb
+```
+
+The notebook covers:
+
+1. Loading the prepared corpus
+2. Training the GRU
+3. Visualizing training curves
+4. Evaluating the model on the test set
+5. Generating next-word predictions
+6. Generating mid-word completions
+7. Visualizing the probability distribution behind the predictions
+
+Example prompts include:
+
+```text
+i want to go to the
+it is a
+holmes was
+what do you
+```
+
+And for word completion:
+
+```text
+i want to g
+it was a very d
+```
+
+## Evaluation metrics
+
+The model reports:
+
+### Top-1 accuracy
+
+Whether the correct next word is the model's first prediction.
+
+### Top-5 accuracy
+
+Whether the correct next word appears anywhere in the five suggestions.
+
+This is particularly useful for a keyboard-style application because users see multiple suggestions rather than only one prediction.
+
+### Perplexity
+
+Perplexity is calculated from the test-set cross-entropy:
+
+```text
+perplexity = exp(cross_entropy)
+```
+
+Lower perplexity means the model assigns higher probability to the actual next words in the test set.
+
+## Current GRU configuration
+
+The GRU notebook currently uses:
+
+| Hyperparameter      |            Value |
+| ------------------- | ---------------: |
+| Sequence length     |                5 |
+| Embedding dimension |               64 |
+| GRU units           |               64 |
+| Batch size          |              256 |
+| Maximum epochs      |                8 |
+| Random seed         | From `config.py` |
+
+These values are intentionally kept small enough to make experimentation practical.
+
+The project configuration can be changed through `config.py` and the training interface.
+
+## Prediction
+
+The same predictor used by the web application can be loaded directly:
+
+```python
+from src.predict import Predictor
+
+predictor = Predictor.load(
+    config.MODELS_DIR / "gru.keras",
+    config.VOCAB_PATH
+)
+```
+
+Then:
+
+```python
+predictor.predict_next(
+    "i want to go to the ",
+    k=5
+)
+```
+
+returns ranked suggestions containing the predicted word and probability.
+
+For an incomplete word:
+
+```python
+predictor.predict_next(
+    "i want to g",
+    k=5
+)
+```
+
+the predictor switches to completion mode and filters predictions according to the typed prefix.
+
+## Web application
+
+Run the FastAPI application:
 
 ```bash
 uvicorn app:app --reload
-# open http://localhost:8000
 ```
 
-or with Docker:
+Then open:
 
-```bash
-docker compose up --build
+```text
+http://localhost:8000
 ```
 
-`docker-compose.yml` mounts `./models` read-only, so retraining a model and restarting the container picks up new weights without rebuilding the image.
+The API exposes:
 
-### API
+```text
+POST /api/predict
+```
 
-`POST /api/predict`
+Example:
 
 ```bash
-curl -X POST localhost:8000/api/predict \
+curl -X POST http://localhost:8000/api/predict \
   -H "Content-Type: application/json" \
   -d '{"text": "i want to go to the ", "k": 5}'
 ```
 
+Example response:
+
 ```json
 {
   "suggestions": [
-    {"word": "station", "probability": 0.18},
-    {"word": "house", "probability": 0.11}
+    {
+      "word": "station",
+      "probability": 0.18
+    },
+    {
+      "word": "house",
+      "probability": 0.11
+    }
   ],
   "mode": "next",
   "latency_ms": 4.2
 }
 ```
 
-`mode` is `"next"` when the text ends in whitespace (suggest the next word) or `"complete"` when it ends mid-word (rank completions that start with that prefix). `GET /health` reports whether a model is loaded.
+The API supports two prediction modes:
+
+```text
+"next"
+```
+
+when the input ends with whitespace, and:
+
+```text
+"complete"
+```
+
+when the user is currently typing a word.
+
+Health status is available at:
+
+```text
+GET /health
+```
+
+## Docker
+
+Build and run the application with:
+
+```bash
+docker compose up --build
+```
+
+The Docker setup mounts the trained models read-only, so updated model weights can be picked up by restarting the container without rebuilding the image.
+
+## Reproducibility and design decisions
+
+### No data leakage
+
+The corpus is split into train, validation and test sentences before vocabulary construction and window generation.
+
+This prevents test sentences from influencing the vocabulary or training windows.
+
+### Left padding and masking
+
+Short contexts are left-padded with:
+
+```text
+<pad>
+```
+
+The embedding layer uses masking so the recurrent network does not learn from padding tokens.
+
+### Special tokens
+
+`<pad>` and `<unk>` are never returned as user-facing predictions.
+
+### Text cleaning
+
+The preprocessing pipeline removes or normalizes common social-media noise such as:
+
+* URLs
+* @mentions
+* Retweet prefixes
+* Hashtags
+
+This allows the model to focus more on language patterns rather than memorizing usernames and URLs.
+
+### Deterministic experiments
+
+A fixed random seed is used for:
+
+* Python
+* NumPy
+* TensorFlow
+
+This makes experiments reproducible under the same environment and data.
+
+## RNN / LSTM / GRU comparison
+
+The project is designed to compare three recurrent architectures on the same task:
+
+```text
+SimpleRNN
+LSTM
+GRU
+```
+
+The comparison notebook is:
+
+```text
+notebooks/05_comparison.ipynb
+```
+
+The goal is to keep the comparison fair:
+
+* Same dataset
+* Same train/validation/test split
+* Same vocabulary
+* Same sequence length
+* Same embedding dimension
+* Same recurrent width
+* Same batch size
+* Same training configuration
+* Same random seed
+
+The main architectural difference is the recurrent layer itself.
+
+Run the LSTM and GRU notebooks first:
+
+```text
+03_lstm.ipynb
+04_gru.ipynb
+```
+
+Then run:
+
+```text
+05_comparison.ipynb
+```
+
+The comparison notebook trains any missing model, collects the metrics, and produces a table containing:
+
+| Model     | Parameters | Top-1 accuracy | Top-5 accuracy | Perplexity | Training time |
+| --------- | ---------: | -------------: | -------------: | ---------: | ------------: |
+| SimpleRNN |          — |              — |              — |          — |             — |
+| LSTM      |          — |              — |              — |          — |             — |
+| GRU       |          — |              — |              — |          — |             — |
+
+The actual values are generated from the experiments and should not be hard-coded into this README.
+
+The notebook also generates:
+
+```text
+outputs/results.md
+outputs/model_comparison.png
+outputs/validation_curves_comparison.png
+```
+
+## Production model
+
+After all three models have been evaluated, `05_comparison.ipynb` identifies the model with the lowest test-set perplexity.
+
+The production model can then be selected using:
+
+```text
+PRODUCTION_MODEL
+```
+
+or the corresponding setting in:
+
+```text
+config.py
+```
+
+For example:
+
+```bash
+PRODUCTION_MODEL=gru
+```
+
+The comparison is based on measured test-set performance rather than assuming beforehand that RNN, LSTM or GRU will perform best.
 
 ## Tests
 
+Run the test suite:
+
 ```bash
-pytest -q          # 36 tests: preprocessing, model shapes, predictor behaviour, API
-ruff check .        # lint
+pytest -q
 ```
 
-CI (`.github/workflows/ci.yml`) runs both on every push, plus a Docker build, so a broken build is caught before it reaches `main`.
+Run linting:
 
-## Design notes
+```bash
+ruff check .
+```
 
-- **No data leakage**: sentences are split into train/val/test *before* the vocabulary is built and before windowing, so the vocabulary and the windows never see test sentences.
-- **Left padding + masking**: short contexts are padded with `<pad>` (id 0) on the left; `Embedding(mask_zero=True)` tells the recurrent layer to ignore those steps rather than learn from them.
-- **`<unk>` and `<pad>` are never suggested**: both are zeroed out of the probability vector before ranking.
-- **Social-media noise is stripped, not learned**: URLs, `@mentions` and a leading `RT @user:` are removed and `#hashtags` are unwrapped to plain words before tokenizing, so the model spends its capacity on language, not on memorizing usernames and links.
-- **Reservoir sampling for the corpus build**: `scripts/build_corpus.py` samples lines from each 200+ MB source file without loading it fully into memory, then shuffles the mixed result so no epoch is dominated by one register.
-- **Deterministic**: one `RANDOM_STATE` seeds NumPy, Python's `random`, and TensorFlow; splits and vocabulary are reproducible from the same corpus.
-- **One model function**: `build_model(kind, ...)` in `src/model.py` is the single place that defines SimpleRNN, LSTM and GRU, so the comparison is a fair one — only the recurrent layer changes.
+CI runs the tests, linting and Docker build on every push.
+
+## Project status
+
+Current workflow:
+
+```text
+01_eda.ipynb
+      ↓
+02_preprocessing.ipynb
+      ↓
+03_lstm.ipynb
+      ↓
+04_gru.ipynb
+      ↓
+05_comparison.ipynb
+      ↓
+Production model
+```
+
+The GRU implementation and prediction pipeline are complete.
+
+The final step is the controlled comparison of **SimpleRNN vs LSTM vs GRU** using `05_comparison.ipynb`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-#   n e x t - w o r d - p r e d i c t i o n  
- 
+This project is released under the MIT License.
+
+See:
+
+```text
+LICENSE
+```
+
+for details.
