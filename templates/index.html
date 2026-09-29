@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Next-word prediction</title>
+  <meta name="description" content="Type a sentence and get five next-word suggestions from an LSTM language model.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+</head>
+<body>
+  <main class="page">
+    <header class="masthead">
+      <h1>Next-word prediction</h1>
+      <p>Start a sentence. The model reads your last few words and ranks what you are most likely to write next.</p>
+    </header>
+
+    {% if not info.ready %}
+    <div class="notice" role="alert">
+      No model is loaded yet. Train one with <code>python -m src.train --model lstm</code>, then restart the app.
+    </div>
+    {% endif %}
+
+    <section class="composer" aria-label="Composer">
+      <label class="sr-only" for="editor">Your text</label>
+      <textarea id="editor" rows="4" maxlength="{{ info.max_chars }}" autofocus spellcheck="false"
+        placeholder="I want to go to the…" {% if not info.ready %}disabled{% endif %}></textarea>
+
+      <div class="strip" id="strip" role="listbox" aria-label="Suggested words" aria-live="polite">
+        <p class="empty" id="empty">Suggestions appear here as you type.</p>
+      </div>
+
+      <footer class="meta">
+        <span><kbd>Tab</kbd> accepts the first suggestion</span>
+        <span id="status">{{ info.model }} · {{ "{:,}".format(info.vocab_size) }} words</span>
+      </footer>
+    </section>
+  </main>
+  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+</body>
+</html>
