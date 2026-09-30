@@ -98,7 +98,7 @@ The three sources represent different writing styles.
 
 ### Dataset Configuration
 
-The default full scale configuration uses:
+The default full corpus configuration uses:
 
 ```text
 150,000 blog lines
@@ -107,6 +107,8 @@ The default full scale configuration uses:
 
 Total: 450,000 lines
 ```
+
+All reported experiments in this README use a smaller sample of 15,000 lines per source (about 45,000 lines in total), which produces 976,755 training windows. Training on the full 450,000-line corpus has not been run yet.
 
 Reservoir sampling is used to sample large source files without loading the complete files into memory.
 
@@ -140,7 +142,7 @@ The reported experiment was intentionally kept lightweight so the complete compa
 | SimpleRNN | 1,298,256 | 15.77% | 33.02% | 262.11 | 25m 24s |
 | LSTM | 1,323,024 | 15.74% | 32.81% | 265.92 | 23m 08s |
 
-The quick experiment uses GRU as the model served by the application.
+GRU had the lowest perplexity in this comparison, so it was chosen as the production model. The served model is the larger GRU described below (10-word context, 128-dimensional embeddings, 256 units), which improved on the quick GRU.
 
 ```python
 config.PRODUCTION_MODEL = "gru"
@@ -153,9 +155,9 @@ outputs/results.md
 outputs/metrics.json
 ```
 
-### Full Scale Experiment Results
+### Larger Model Experiment Results
 
-A full scale run was also completed for GRU, using a longer context window and a larger model:
+A larger run was also completed for GRU, using a longer context window and a larger model. It uses the same corpus sample as the quick experiment, so the difference comes from the model configuration and not from more data:
 
 ```text
 Sequence length:     10
@@ -169,17 +171,17 @@ Vocabulary size:     10,000
 
 | Model | Parameters | Top 1 Accuracy | Top 5 Accuracy | Test Loss | Perplexity | Training Time |
 |---|---:|---:|---:|---:|---:|---:|
-| GRU (full scale) | 4,146,448 | 17.37% | 35.78% | 5.3808 | 217.19 | 1h 13m 54s |
+| GRU (larger) | 4,146,448 | 17.37% | 35.78% | 5.3808 | 217.19 | 1h 13m 54s |
 
-This is a real improvement over the quick experiment (perplexity 217.19 versus 253.01), consistent with the expectation that a longer context window and larger recurrent width let GRU's gating mechanism do more useful work. LSTM and SimpleRNN have not yet been run at this same full scale configuration, so a fair three way comparison at full scale is still open. The commands to reproduce this for all three models are in the Full Scale Training section below.
+This is a real improvement over the quick experiment (perplexity 217.19 versus 253.01), consistent with the expectation that a longer context window and larger recurrent width let GRU's gating mechanism do more useful work. Context length, embedding size, and recurrent units were all changed together, so this run cannot show which change contributed most. LSTM and SimpleRNN have not yet been run at this same larger configuration, so a fair three way comparison at this size is still open. The commands to reproduce this for all three models are in the Larger Model Training section below.
 
 ## Interpreting the Results
 
 These results represent this particular experiment configuration.
 
-The sequence length is five words and the models use a relatively small embedding dimension and recurrent width. This makes the experiment suitable for a CPU friendly comparison, but it is not intended to establish that one recurrent architecture is universally superior.
+In the quick comparison the sequence length is five words and the models use a relatively small embedding dimension and recurrent width. This makes the experiment suitable for a CPU friendly comparison, but it is not intended to establish that one recurrent architecture is universally superior. Each result comes from a single run with a single seed.
 
-LSTM and GRU are designed to handle longer dependencies through their gating mechanisms. A longer context window and larger training configuration would provide a more meaningful test of their long range memory capabilities. The full scale GRU result above supports this: performance improved once the context window and model size increased.
+LSTM and GRU are designed to handle longer dependencies through their gating mechanisms. A longer context window and larger training configuration would provide a more meaningful test of their long range memory capabilities. The larger GRU result above is consistent with this: performance improved once the context window and model size increased.
 
 ## Example Predictions
 
@@ -392,7 +394,7 @@ The preprocessing pipeline performs the following operations:
 6. Text is tokenized into words.
 7. Apostrophes are preserved.
 8. Sentences shorter than two tokens are removed.
-9. The vocabulary is limited to the 10,000 most frequent words.
+9. The vocabulary is limited to 10,000 entries, including `<pad>` and `<unk>` (so 9,998 real words).
 10. Rare words are mapped to `<unk>`.
 11. `<pad>` receives ID `0`.
 12. `<unk>` receives ID `1`.
@@ -477,15 +479,9 @@ Training metrics and generated artifacts are stored under:
 outputs/
 ```
 
-## Full Scale Training
+## Larger Model Training
 
-For a larger experiment:
-
-```bash
-python scripts/download_data.py --lines-per-source 150000
-```
-
-Then:
+The larger experiment uses a longer context window and a wider model on the same corpus sample as the quick experiment:
 
 ```bash
 python -m src.train --model lstm --seq-len 10 --units 256 --embed-dim 128 --epochs 30
@@ -495,9 +491,21 @@ python -m src.train --model gru --seq-len 10 --units 256 --embed-dim 128 --epoch
 python -m src.train --model rnn --seq-len 10 --units 256 --embed-dim 128 --epochs 30
 ```
 
-The full experiment uses a longer context window of ten words. The GRU run using this exact configuration is reported above in Full Scale Experiment Results; on a CPU only machine it took approximately 1 hour and 14 minutes and stopped early at epoch 8 of 30 due to early stopping on validation loss.
+The larger experiment uses a context window of ten words. The GRU run using this exact configuration is reported above in Larger Model Experiment Results; on a CPU only machine it took approximately 1 hour and 14 minutes and stopped early at epoch 8 of 30 due to early stopping on validation loss.
+
+Training writes to the same `models/` and `outputs/` files as the quick experiment, so back up those folders before running it again if you want to keep the earlier results.
 
 GPU environments such as Linux, WSL2, or Google Colab can significantly reduce training time compared with CPU only training.
+
+### Full 450,000-Line Corpus (Not Yet Run)
+
+To build the full corpus of 150,000 lines per source and train on it:
+
+```bash
+python scripts/download_data.py --lines-per-source 150000
+```
+
+Then run any of the training commands above. This has not been run yet, so no results are reported for it.
 
 ## Dataset Setup
 
@@ -629,22 +637,24 @@ curl -X POST http://localhost:8000/api/predict \
   -d '{"text": "i want to go to the ", "k": 5}'
 ```
 
-Example response:
+Example response (shape shown; probability and latency values shortened):
+
+<!-- TODO: replace with a real response copied from your running app -->
 
 ```json
 {
   "suggestions": [
     {
-      "word": "station",
-      "probability": 0.18
+      "word": "world",
+      "probability": 0.0
     },
     {
-      "word": "house",
-      "probability": 0.11
+      "word": "same",
+      "probability": 0.0
     }
   ],
   "mode": "next",
-  "latency_ms": 4.2
+  "latency_ms": 0.0
 }
 ```
 
@@ -727,6 +737,7 @@ The tests cover:
 3. Model shapes
 4. Predictor behavior
 5. API behavior
+6. CORS behavior
 
 Run linting:
 
@@ -873,7 +884,7 @@ The notebooks cover exploratory data analysis, preprocessing, model training, an
 
 The main configuration values are defined in `config.py`.
 
-| Parameter | Default | Quick Experiment | Full Scale Experiment | Purpose |
+| Parameter | Default | Quick Experiment | Larger Model Experiment | Purpose |
 |---|---:|---:|---:|---|
 | `SEQ_LEN` | 6 | 5 | 10 | Number of previous words used as context |
 | `MAX_VOCAB` | 10,000 | 10,000 | 10,000 | Maximum vocabulary size |
@@ -975,7 +986,7 @@ The project brings together machine learning, natural language processing, model
 
 Possible directions for extending the system include:
 
-1. Larger training datasets
+1. Training on the full 450,000-line corpus
 2. Longer context windows
 3. Larger recurrent architectures
 4. Improved text normalization
@@ -985,7 +996,7 @@ Possible directions for extending the system include:
 8. Model quantization
 9. GPU optimized training
 10. Production scale inference optimization
-11. Full scale training for LSTM and SimpleRNN to complete a fair three way comparison at the longer context window
+11. Larger model training for LSTM and SimpleRNN, run with several seeds, to complete a fair three way comparison at the longer context window
 
 ## License
 
