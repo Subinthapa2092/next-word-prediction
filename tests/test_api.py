@@ -17,7 +17,13 @@ def test_health_ok(client):
 
 def test_index_serves_html(client):
     res = client.get("/")
-    assert res.status_code == 200 and "Next-word prediction" in res.text
+    assert res.status_code == 200 and "Next Word Predictor" in res.text
+
+
+def test_cors_allows_the_local_frontend(client):
+    res = client.options("/api/predict", headers={
+        "Origin": "http://localhost:3000", "Access-Control-Request-Method": "POST"})
+    assert res.headers.get("access-control-allow-origin") == "http://localhost:3000"
 
 
 def test_static_assets_are_served(client):

@@ -2,42 +2,52 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Next-word prediction</title>
-  <meta name="description" content="Type a sentence and get five next-word suggestions from an LSTM language model.">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#6200ee">
+  <title>Next Word Predictor</title>
+  <meta name="description" content="Type a sentence and get nine ranked next-word suggestions from a GRU language model.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <main class="page">
-    <header class="masthead">
-      <h1>Next-word prediction</h1>
-      <p>Start a sentence. The model reads your last few words and ranks what you are most likely to write next.</p>
-    </header>
+  <header class="appbar">
+    <button id="menu" class="icon-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="drawer">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+    </button>
+    <h1>Next Word Predictor</h1>
+  </header>
+
+  <div class="scrim" id="scrim"></div>
+  <nav class="drawer" id="drawer" aria-label="Main">
+    <button class="nav-item" id="aboutBtn" type="button">About</button>
+    <p class="made">Made with <span class="heart" aria-label="love">&#9829;</span> by Subin</p>
+  </nav>
+
+  <main class="content">
+    <label class="sr-only" for="editor">Your text</label>
+    <textarea id="editor" rows="2" maxlength="{{ info.max_chars }}" placeholder="Start typing a sentence" autofocus spellcheck="false" autocomplete="off" {% if not info.ready %}disabled{% endif %}></textarea>
 
     {% if not info.ready %}
-    <div class="notice" role="alert">
-      No model is loaded yet. Train one with <code>python -m src.train --model lstm</code>, then restart the app.
-    </div>
+    <p class="msg error" role="alert">No model loaded. Train one with <code>python -m src.train --model gru</code>, then restart the app.</p>
     {% endif %}
 
-    <section class="composer" aria-label="Composer">
-      <label class="sr-only" for="editor">Your text</label>
-      <textarea id="editor" rows="4" maxlength="{{ info.max_chars }}" autofocus spellcheck="false"
-        placeholder="I want to go to the…" {% if not info.ready %}disabled{% endif %}></textarea>
+    <div id="grid" class="grid" role="listbox" aria-label="Suggested words" aria-live="polite">
+      <p class="msg">Suggestions appear here as you type.</p>
+    </div>
 
-      <div class="strip" id="strip" role="listbox" aria-label="Suggested words" aria-live="polite">
-        <p class="empty" id="empty">Suggestions appear here as you type.</p>
-      </div>
-
-      <footer class="meta">
-        <span><kbd>Tab</kbd> accepts the first suggestion</span>
-        <span id="status">{{ info.model }} · {{ "{:,}".format(info.vocab_size) }} words</span>
-      </footer>
-    </section>
+    <p class="status"><span id="status">{{ info.model }} &middot; {{ "{:,}".format(info.vocab_size) }} words</span><span class="hint"><kbd>Tab</kbd> accepts the first word</span></p>
   </main>
-  <script src="{{ url_for('static', path='app.js') }}" defer></script>
+
+  <dialog id="about" aria-labelledby="about-title">
+    <h2 id="about-title">About</h2>
+    <p>This app suggests the next word as you type, like a phone keyboard. A GRU neural network trained on blogs, news and tweets from the SwiftKey corpus ranks the most likely words.</p>
+    <p>If you stop in the middle of a word, it suggests ways to finish it instead.</p>
+    <p><a href="https://github.com/Subinthapa2092/next-word-prediction" target="_blank" rel="noopener">View the code on GitHub</a></p>
+    <button id="aboutClose" class="text-btn" type="button">Close</button>
+  </dialog>
+
+  <script src="/static/app.js" defer></script>
 </body>
 </html>

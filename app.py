@@ -2,15 +2,21 @@
 
     uvicorn app:app --reload          # development
     docker compose up --build         # production-style
+
+The API also accepts requests from a separately hosted frontend (for example on
+Vercel). Allowed origins come from the ALLOWED_ORIGINS environment variable
+(comma separated), or from the default list below.
 """
 from __future__ import annotations
 
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -21,6 +27,11 @@ from src.predict import Predictor
 
 logger = logging.getLogger("next-word")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Websites allowed to call this API from a browser. Replace the Vercel address with
+# your real one after the first deploy, or set ALLOWED_ORIGINS on the server instead.
+DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,https://YOUR-PROJECT.vercel.app"
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
 
 
 class PredictRequest(BaseModel):
@@ -54,6 +65,15 @@ def create_app(model_path: Path | str | None = None, vocab_path: Path | str | No
         yield
 
     app = FastAPI(title="Next-Word Prediction", version="1.0.0", lifespan=lifespan)
+
+    # Lets the separately hosted frontend (Vercel) call this API from the browser
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+
     base = Path(__file__).resolve().parent
     app.mount("/static", StaticFiles(directory=base / "static"), name="static")
     templates = Jinja2Templates(directory=base / "templates")
