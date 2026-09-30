@@ -10,6 +10,16 @@ The same dataset, preprocessing pipeline, vocabulary, training configuration, an
 
 The trained model is integrated into a FastAPI application that provides real time next word prediction and word completion.
 
+## Live Demo
+
+Frontend (Vercel):
+[https://next-word-prediction-frontend.vercel.app/](https://next-word-prediction-frontend.vercel.app/)
+
+Backend API (Render):
+[https://next-word-prediction-f3tv.onrender.com/](https://next-word-prediction-f3tv.onrender.com/)
+
+The frontend is a separately hosted static site that calls the backend API over CORS. The backend runs on Render's free tier, which spins down after periods of inactivity. The first request after idle time can take significantly longer than normal while the service wakes up; subsequent requests return at normal speed.
+
 ## Overview
 
 The system supports two prediction modes.
@@ -122,7 +132,7 @@ Vocabulary size:     10,000
 
 The reported experiment was intentionally kept lightweight so the complete comparison could run on a CPU only machine.
 
-### Results
+### Quick CPU Experiment Results
 
 | Model | Parameters | Top 1 Accuracy | Top 5 Accuracy | Perplexity | Training Time |
 |---|---:|---:|---:|---:|---:|
@@ -130,7 +140,7 @@ The reported experiment was intentionally kept lightweight so the complete compa
 | SimpleRNN | 1,298,256 | 15.77% | 33.02% | 262.11 | 25m 24s |
 | LSTM | 1,323,024 | 15.74% | 32.81% | 265.92 | 23m 08s |
 
-The experiment uses GRU as the model served by the application.
+The quick experiment uses GRU as the model served by the application.
 
 ```python
 config.PRODUCTION_MODEL = "gru"
@@ -143,13 +153,33 @@ outputs/results.md
 outputs/metrics.json
 ```
 
+### Full Scale Experiment Results
+
+A full scale run was also completed for GRU, using a longer context window and a larger model:
+
+```text
+Sequence length:     10
+Embedding dimension: 128
+Recurrent units:     256
+Epochs (configured): 30
+Epochs (run):        11, stopped early at best epoch 8
+Training samples:    976,755
+Vocabulary size:     10,000
+```
+
+| Model | Parameters | Top 1 Accuracy | Top 5 Accuracy | Test Loss | Perplexity | Training Time |
+|---|---:|---:|---:|---:|---:|---:|
+| GRU (full scale) | 4,146,448 | 17.37% | 35.78% | 5.3808 | 217.19 | 1h 13m 54s |
+
+This is a real improvement over the quick experiment (perplexity 217.19 versus 253.01), consistent with the expectation that a longer context window and larger recurrent width let GRU's gating mechanism do more useful work. LSTM and SimpleRNN have not yet been run at this same full scale configuration, so a fair three way comparison at full scale is still open. The commands to reproduce this for all three models are in the Full Scale Training section below.
+
 ## Interpreting the Results
 
 These results represent this particular experiment configuration.
 
 The sequence length is five words and the models use a relatively small embedding dimension and recurrent width. This makes the experiment suitable for a CPU friendly comparison, but it is not intended to establish that one recurrent architecture is universally superior.
 
-LSTM and GRU are designed to handle longer dependencies through their gating mechanisms. A longer context window and larger training configuration would provide a more meaningful test of their long range memory capabilities.
+LSTM and GRU are designed to handle longer dependencies through their gating mechanisms. A longer context window and larger training configuration would provide a more meaningful test of their long range memory capabilities. The full scale GRU result above supports this: performance improved once the context window and model size increased.
 
 ## Example Predictions
 
@@ -194,6 +224,11 @@ next-word-prediction-main/
 │       ├── en_US.blogs.txt
 │       ├── en_US.news.txt
 │       └── en_US.twitter.txt
+│
+├── frontend/
+│   ├── app.js
+│   ├── index.html
+│   └── style.css
 │
 ├── models/
 │   ├── gru.keras
@@ -272,6 +307,8 @@ next-word-prediction-main/
 ```
 
 The `.venv` or `venv` environment and Python cache directories are local development files and are not part of the core project structure.
+
+`static/` and `templates/` are the combined FastAPI application used for local development and Docker (`app.py` serves the page directly). `frontend/` is a separate, independently hosted static site (plain HTML, CSS, and JavaScript) used for the live Vercel deployment. It calls the backend `/api/predict` and `/health` endpoints over CORS, using the same JSON contract described in the API section below.
 
 ## Output Files
 
@@ -409,7 +446,7 @@ python -m src.train --model rnn
 
 ## Quick CPU Experiment
 
-To reproduce the configuration used for the reported comparison:
+To reproduce the configuration used for the reported quick comparison:
 
 ```bash
 python -m src.train --model gru --epochs 8 --batch-size 256 --seq-len 5 --embed-dim 64 --units 64
@@ -458,7 +495,7 @@ python -m src.train --model gru --seq-len 10 --units 256 --embed-dim 128 --epoch
 python -m src.train --model rnn --seq-len 10 --units 256 --embed-dim 128 --epochs 30
 ```
 
-The full experiment uses a longer context window of ten words.
+The full experiment uses a longer context window of ten words. The GRU run using this exact configuration is reported above in Full Scale Experiment Results; on a CPU only machine it took approximately 1 hour and 14 minutes and stopped early at epoch 8 of 30 due to early stopping on validation loss.
 
 GPU environments such as Linux, WSL2, or Google Colab can significantly reduce training time compared with CPU only training.
 
@@ -812,6 +849,10 @@ TensorFlow
 
 This helps produce reproducible dataset splits and vocabulary construction.
 
+### Separately Hosted Frontend
+
+The live deployment splits the application into two independently hosted pieces. The backend (FastAPI, in `app.py`) is deployed to Render and exposes `/api/predict` and `/health`. The frontend (in `frontend/`) is a plain HTML, CSS, and JavaScript site deployed to Vercel that calls the backend over CORS. The backend's `CORSMiddleware` allow list is controlled by the `ALLOWED_ORIGINS` environment variable, which includes the live Vercel URL.
+
 ## Notebook Workflow
 
 The notebooks provide the experimental workflow with explanations, plots, and intermediate results.
@@ -832,15 +873,15 @@ The notebooks cover exploratory data analysis, preprocessing, model training, an
 
 The main configuration values are defined in `config.py`.
 
-| Parameter | Default | Quick Experiment | Purpose |
-|---|---:|---:|---|
-| `SEQ_LEN` | 6 | 5 | Number of previous words used as context |
-| `MAX_VOCAB` | 10,000 | 10,000 | Maximum vocabulary size |
-| `MIN_FREQ` | 2 | 2 | Minimum word frequency |
-| `EMBED_DIM` | 128 | 64 | Word embedding dimension |
-| `UNITS` | 256 | 64 | Recurrent layer width |
-| `EPOCHS` | 30 | 8 | Maximum training epochs |
-| `BATCH_SIZE` | 128 | 256 | Samples processed per batch |
+| Parameter | Default | Quick Experiment | Full Scale Experiment | Purpose |
+|---|---:|---:|---:|---|
+| `SEQ_LEN` | 6 | 5 | 10 | Number of previous words used as context |
+| `MAX_VOCAB` | 10,000 | 10,000 | 10,000 | Maximum vocabulary size |
+| `MIN_FREQ` | 2 | 2 | 2 | Minimum word frequency |
+| `EMBED_DIM` | 128 | 64 | 128 | Word embedding dimension |
+| `UNITS` | 256 | 64 | 256 | Recurrent layer width |
+| `EPOCHS` | 30 | 8 | 30 | Maximum training epochs |
+| `BATCH_SIZE` | 128 | 256 | 128 | Samples processed per batch |
 
 Major configuration values can be overridden using environment variables or command line arguments.
 
@@ -944,6 +985,7 @@ Possible directions for extending the system include:
 8. Model quantization
 9. GPU optimized training
 10. Production scale inference optimization
+11. Full scale training for LSTM and SimpleRNN to complete a fair three way comparison at the longer context window
 
 ## License
 
