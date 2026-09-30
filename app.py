@@ -30,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 # Websites allowed to call this API from a browser. Replace the Vercel address with
 # your real one after the first deploy, or set ALLOWED_ORIGINS on the server instead.
-DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,https://YOUR-PROJECT.vercel.app"
+DEFAULT_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,https://next-word-prediction-frontend.vercel.app"
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
 
 
