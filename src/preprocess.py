@@ -8,8 +8,8 @@ import json
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import config
 
@@ -98,7 +98,7 @@ class Vocabulary:
         sentences: Iterable[list[str]],
         max_size: int = config.MAX_VOCAB,
         min_freq: int = config.MIN_FREQ,
-    ) -> "Vocabulary":
+    ) -> Vocabulary:
         """Build from training sentences only, most frequent words first."""
         counts = Counter(tok for sent in sentences for tok in sent)
         kept = [w for w, c in counts.most_common() if c >= min_freq]
@@ -117,7 +117,7 @@ class Vocabulary:
         path.write_text(json.dumps({"itos": self.itos}, ensure_ascii=False), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: Path | str) -> "Vocabulary":
+    def load(cls, path: Path | str) -> Vocabulary:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
         vocab = cls([])
         vocab.itos = data["itos"]
