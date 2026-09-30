@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="wrap">
@@ -24,19 +24,15 @@
       <label class="sr-only" for="editor">Your text</label>
       <div class="field">
         <div id="mirror" class="mirror" aria-hidden="true"></div>
-        <textarea id="editor" rows="3" maxlength="{{ info.max_chars }}" placeholder="I want to go to the" autofocus spellcheck="false" autocomplete="off" {% if not info.ready %}disabled{% endif %}></textarea>
+        <textarea id="editor" rows="3" maxlength="500" placeholder="I want to go to the" autofocus spellcheck="false" autocomplete="off"></textarea>
       </div>
       <p class="hint">Tap a word to accept it<span class="tab-only">, or press <kbd>Tab</kbd> to take the faded one</span>.</p>
-
-      {% if not info.ready %}
-      <p class="msg error" role="alert">No model loaded. Train one with <code>python -m src.train --model gru</code>, then restart the app.</p>
-      {% endif %}
 
       <div id="list" class="list" role="listbox" aria-label="Suggested words" aria-live="polite">
         <p class="msg">Suggestions appear here as you type.</p>
       </div>
 
-      <p class="status" id="status">{{ info.model }} &middot; {{ "{:,}".format(info.vocab_size) }} words</p>
+      <p class="status" id="status">GRU</p>
     </main>
   </div>
 
@@ -48,6 +44,7 @@
     <button id="aboutClose" type="button">Close</button>
   </dialog>
 
-  <script src="/static/app.js" defer></script>
+  <script>window.API_BASE = "https://YOUR_HF_USERNAME-next-word-prediction.hf.space";</script>
+  <script src="app.js" defer></script>
 </body>
 </html>
