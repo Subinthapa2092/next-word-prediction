@@ -3,7 +3,14 @@ import pytest
 
 import config
 from src.dataset import make_windows, prepare_data
-from src.preprocess import Vocabulary, clean_text, split_sentences, strip_gutenberg, strip_social_noise, tokenize
+from src.preprocess import (
+    Vocabulary,
+    clean_text,
+    split_sentences,
+    strip_gutenberg,
+    strip_social_noise,
+    tokenize,
+)
 
 
 def test_clean_text_lowercases_and_normalises_quotes():

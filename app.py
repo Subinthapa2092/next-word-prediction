@@ -6,10 +6,18 @@
 from __future__ import annotations
 
 import logging
+
+# Free-tier hosts (Render, Railway, small containers) give a CPU-throttled fraction
+# of a core. TensorFlow's default thread pool assumes a full multi-core machine;
+# on a throttled container that thread pool causes large per-request scheduling
+# overhead for even a tiny model. Forcing single-threaded execution removes that
+# overhead and costs nothing on capable hardware — set the env vars to override.
+import os
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import tensorflow as tf
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -20,13 +28,6 @@ from pydantic import BaseModel, Field
 import config
 from src.predict import Predictor
 
-# Free-tier hosts (Render, Railway, small containers) give a CPU-throttled fraction
-# of a core. TensorFlow's default thread pool assumes a full multi-core machine;
-# on a throttled container that thread pool causes large per-request scheduling
-# overhead for even a tiny model. Forcing single-threaded execution removes that
-# overhead and costs nothing on capable hardware — set the env vars to override.
-import os
-import tensorflow as tf
 tf.config.threading.set_intra_op_parallelism_threads(int(os.getenv("TF_INTRA_OP_THREADS", "1")))
 tf.config.threading.set_inter_op_parallelism_threads(int(os.getenv("TF_INTER_OP_THREADS", "1")))
 
