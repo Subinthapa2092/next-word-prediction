@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -31,6 +32,11 @@ tf.config.threading.set_inter_op_parallelism_threads(int(os.getenv("TF_INTER_OP_
 
 logger = logging.getLogger("next-word")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+# Websites allowed to call this API from a browser (the Vercel frontend and local testing).
+# Override on the server with the ALLOWED_ORIGINS environment variable, comma separated.
+DEFAULT_ORIGINS = "https://next-word-prediction-frontend.vercel.app,http://localhost:3000,http://127.0.0.1:3000"
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS).split(",") if o.strip()]
 
 
 class PredictRequest(BaseModel):
@@ -64,6 +70,15 @@ def create_app(model_path: Path | str | None = None, vocab_path: Path | str | No
         yield
 
     app = FastAPI(title="Next-Word Prediction", version="1.0.0", lifespan=lifespan)
+
+    # Lets the separately hosted frontend call this API from the browser
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_methods=["GET", "POST"],
+        allow_headers=["*"],
+    )
+
     base = Path(__file__).resolve().parent
     app.mount("/static", StaticFiles(directory=base / "static"), name="static")
     templates = Jinja2Templates(directory=base / "templates")
