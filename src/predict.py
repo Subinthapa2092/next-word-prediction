@@ -24,7 +24,7 @@ class Predictor:
         self._prefix_cache: dict[str, np.ndarray] = {}
 
     @classmethod
-    def load(cls, model_path: Path | str | None = None, vocab_path: Path | str | None = None) -> "Predictor":
+    def load(cls, model_path: Path | str | None = None, vocab_path: Path | str | None = None) -> Predictor:
         import keras
 
         model_path = Path(model_path or config.MODELS_DIR / f"{config.PRODUCTION_MODEL}.keras")
