@@ -2,13 +2,13 @@
 
 ### SimpleRNN vs LSTM vs GRU
 
-A neural language modeling system that predicts the next word from user text and generates five ranked suggestions.
+A neural language modeling system that predicts the next word from user text and returns ranked suggestions.
 
 This project implements and compares three recurrent neural network architectures: **SimpleRNN, LSTM, and GRU**.
 
 The same dataset, preprocessing pipeline, vocabulary, training configuration, and evaluation process are used for the three architectures.
 
-The trained model is integrated into a FastAPI application that provides real time next word prediction and word completion.
+The trained model is integrated into a FastAPI application that provides real time next word prediction and word completion. The API returns five suggestions by default (`k` can be 1 to 10), and the web page asks for six.
 
 ## Live Demo
 
@@ -32,7 +32,7 @@ When the input ends with a space, the model predicts the most likely next words.
 Input:
 i want to go to the
 
-Suggestions:
+Suggestions (example from the quick-run model):
 world
 same
 next
@@ -48,7 +48,7 @@ When the user is typing an incomplete word, the system switches to completion mo
 Input:
 i want to g
 
-Suggestions:
+Suggestions (example from the quick-run model):
 get
 go
 give
@@ -56,7 +56,7 @@ grow
 grab
 ```
 
-The predictor generates the top five suggestions using the predicted vocabulary probabilities.
+The predictor ranks the vocabulary by predicted probability and returns the top suggestions. The live site serves the larger GRU described below, so its suggestions can differ from these examples.
 
 ## How It Works
 
@@ -79,7 +79,7 @@ Softmax
     ↓
 Vocabulary Probabilities
     ↓
-Top 5 Suggestions
+Top Suggestions (5 by default)
 ```
 
 The same pipeline is used for all three recurrent architectures so their behavior can be compared under the same experimental conditions.
@@ -108,11 +108,19 @@ The default full corpus configuration uses:
 Total: 450,000 lines
 ```
 
-All reported experiments in this README use a smaller sample of 15,000 lines per source (about 45,000 lines in total), which produces 976,755 training windows. Training on the full 450,000-line corpus has not been run yet.
+All reported experiments in this README use a smaller sample of 15,000 lines per source (about 45,000 lines in total). After cleaning, that sample holds 90,279 sentences. The sentence level split gives:
+
+```text
+Train:       976,755 windows
+Validation:  120,778 windows
+Test:        121,282 windows
+```
+
+Training on the full 450,000-line corpus has not been run yet.
 
 Reservoir sampling is used to sample large source files without loading the complete files into memory.
 
-> **Dataset note:** The SwiftKey / HC Corpora dataset has separate usage considerations and is used here for experimentation and portfolio purposes. A production commercial system should use data with clearly documented commercial usage rights.
+> **Dataset note:** The SwiftKey / HC Corpora dataset has separate usage considerations and is used here for experimentation and portfolio purposes. A commercial system should use data with clearly documented commercial usage rights.
 
 ## Model Comparison
 
@@ -142,13 +150,13 @@ The reported experiment was intentionally kept lightweight so the complete compa
 | SimpleRNN | 1,298,256 | 15.77% | 33.02% | 262.11 | 25m 24s |
 | LSTM | 1,323,024 | 15.74% | 32.81% | 265.92 | 23m 08s |
 
-GRU had the lowest perplexity in this comparison, so it was chosen as the production model. The served model is the larger GRU described below (10-word context, 128-dimensional embeddings, 256 units), which improved on the quick GRU.
+GRU had the lowest perplexity in this comparison, so it was chosen as the model served by the app. The served model is the larger GRU described below (10-word context, 128-dimensional embeddings, 256 units), which improved on the quick GRU.
 
 ```python
 config.PRODUCTION_MODEL = "gru"
 ```
 
-The complete raw comparison is available in:
+The complete raw comparison from the quick experiment is available in:
 
 ```text
 outputs/results.md
@@ -163,8 +171,11 @@ A larger run was also completed for GRU, using a longer context window and a lar
 Sequence length:     10
 Embedding dimension: 128
 Recurrent units:     256
+Batch size:          256
+Dropout:             0.3
+Learning rate:       0.001 (halved when validation loss stalls)
 Epochs (configured): 30
-Epochs (run):        11, stopped early at best epoch 8
+Epochs (run):        11 (best epoch: 8)
 Training samples:    976,755
 Vocabulary size:     10,000
 ```
@@ -173,19 +184,27 @@ Vocabulary size:     10,000
 |---|---:|---:|---:|---:|---:|---:|
 | GRU (larger) | 4,146,448 | 17.37% | 35.78% | 5.3808 | 217.19 | 1h 13m 54s |
 
-This is a real improvement over the quick experiment (perplexity 217.19 versus 253.01), consistent with the expectation that a longer context window and larger recurrent width let GRU's gating mechanism do more useful work. Context length, embedding size, and recurrent units were all changed together, so this run cannot show which change contributed most. LSTM and SimpleRNN have not yet been run at this same larger configuration, so a fair three way comparison at this size is still open. The commands to reproduce this for all three models are in the Larger Model Training section below.
+This is an improvement over the quick experiment (perplexity 217.19 versus 253.01). Context length, embedding size, and recurrent units were all changed together, so this run cannot show which change contributed most. LSTM and SimpleRNN have not yet been run at this larger configuration, so a fair three way comparison at this size is still open. The commands to reproduce this for all three models are in the Larger Model Training section below.
 
 ## Interpreting the Results
 
 These results represent this particular experiment configuration.
 
-In the quick comparison the sequence length is five words and the models use a relatively small embedding dimension and recurrent width. This makes the experiment suitable for a CPU friendly comparison, but it is not intended to establish that one recurrent architecture is universally superior. Each result comes from a single run with a single seed.
+In the quick comparison the sequence length is five words and the models use a relatively small embedding dimension and recurrent width. This makes the experiment suitable for a CPU friendly comparison, but it is not intended to establish that one recurrent architecture is universally superior. Each result comes from a single run with a single seed, and the gaps between the three architectures are small (0.3 points of top 1 accuracy).
 
-LSTM and GRU are designed to handle longer dependencies through their gating mechanisms. A longer context window and larger training configuration would provide a more meaningful test of their long range memory capabilities. The larger GRU result above is consistent with this: performance improved once the context window and model size increased.
+In the quick comparison, the recurrent layer is only 0.6% to 2.5% of each model's parameters. The rest is the embedding table and the output layer, which are identical across the three models.
+
+LSTM and GRU are designed to handle longer dependencies through their gating mechanisms, and a five word window leaves little distance for that to matter. The larger GRU result performed better, but the improvement may come from the longer context, the larger model, or both. Testing the long range memory argument properly needs all three architectures at the larger configuration.
+
+### Why the accuracy numbers look low
+
+Next word prediction is ambiguous: many words are valid continuations, but the test counts only the one that followed in the original text. A perplexity of 217 over a 10,000 word vocabulary is far better than the 10,000 of random guessing. Top 5 accuracy is the metric closest to the product, since the app shows a short list of suggestions.
+
+One caveat: the most common target in the data is `<unk>` (7.6% of training targets), and the accuracy metrics count it like any other word. The app never suggests `<unk>`, so the accuracy a user experiences is probably somewhat lower than the reported numbers. This has not been measured yet.
 
 ## Example Predictions
 
-The trained models produce examples such as:
+The quick-run models produced examples such as:
 
 ```text
 "i want to go to the "
@@ -248,7 +267,7 @@ next-word-prediction-main/
 ├── outputs/
 │   ├── eda_sentence_lengths.png
 │   ├── eda_top_words.png
-│   ├── eda_zip.png
+│   ├── eda_zipf.png
 │   ├── gru_example_prediction.png
 │   ├── gru_history.json
 │   ├── gru_training_curves.png
@@ -308,20 +327,20 @@ next-word-prediction-main/
 └── requirements.txt
 ```
 
-The `.venv` or `venv` environment and Python cache directories are local development files and are not part of the core project structure.
+`data/` and `outputs/` are generated locally and are not stored in the repository (see `.gitignore`). The `.venv` or `venv` environment and Python cache directories are also local development files.
 
 `static/` and `templates/` are the combined FastAPI application used for local development and Docker (`app.py` serves the page directly). `frontend/` is a separate, independently hosted static site (plain HTML, CSS, and JavaScript) used for the live Vercel deployment. It calls the backend `/api/predict` and `/health` endpoints over CORS, using the same JSON contract described in the API section below.
 
 ## Output Files
 
-The `outputs/` directory contains the complete set of generated experiment artifacts.
+The `outputs/` directory contains the generated experiment artifacts.
 
 ### Exploratory Data Analysis Images
 
 ```text
 outputs/eda_sentence_lengths.png
 outputs/eda_top_words.png
-outputs/eda_zip.png
+outputs/eda_zipf.png
 ```
 
 ### GRU Outputs
@@ -359,28 +378,9 @@ outputs/metrics.json
 outputs/results.md
 ```
 
-### All Generated Image Files
-
-The project currently contains these image artifacts:
-
-```text
-eda_sentence_lengths.png
-eda_top_words.png
-eda_zip.png
-
-gru_example_prediction.png
-gru_training_curves.png
-
-lstm_example_prediction.png
-lstm_training_curves.png
-
-rnn_training_curves.png
-
-model_comparison.png
-validation_curves_comparison.png
-```
-
 The JSON and CSV files contain the experiment histories, metrics, and training logs.
+
+> **Note:** training the larger GRU overwrote the GRU files in `outputs/` (history, training log, and training curves), so those now describe the larger run. The comparison images made before that run still show the quick experiment.
 
 ## Data Pipeline
 
@@ -394,11 +394,11 @@ The preprocessing pipeline performs the following operations:
 6. Text is tokenized into words.
 7. Apostrophes are preserved.
 8. Sentences shorter than two tokens are removed.
-9. The vocabulary is limited to 10,000 entries, including `<pad>` and `<unk>` (so 9,998 real words).
-10. Rare words are mapped to `<unk>`.
-11. `<pad>` receives ID `0`.
-12. `<unk>` receives ID `1`.
-13. Sentences are divided into training, validation, and test sets.
+9. Sentences are divided into training, validation, and test sets.
+10. The vocabulary is built from the training sentences only, limited to 10,000 entries including `<pad>` and `<unk>` (so 9,998 real words).
+11. Rare words and words outside the vocabulary are mapped to `<unk>`.
+12. `<pad>` receives ID `0`.
+13. `<unk>` receives ID `1`.
 14. Sliding windows are generated using the sequence length.
 15. Short contexts are left padded with `<pad>`.
 
@@ -446,6 +446,8 @@ python -m src.train --model lstm
 python -m src.train --model rnn
 ```
 
+The defaults in `config.py` match the quick CPU experiment below.
+
 ## Quick CPU Experiment
 
 To reproduce the configuration used for the reported quick comparison:
@@ -491,7 +493,7 @@ python -m src.train --model gru --seq-len 10 --units 256 --embed-dim 128 --epoch
 python -m src.train --model rnn --seq-len 10 --units 256 --embed-dim 128 --epochs 30
 ```
 
-The larger experiment uses a context window of ten words. The GRU run using this exact configuration is reported above in Larger Model Experiment Results; on a CPU only machine it took approximately 1 hour and 14 minutes and stopped early at epoch 8 of 30 due to early stopping on validation loss.
+The GRU run using this configuration is reported above in Larger Model Experiment Results. On a CPU only machine it took about 1 hour and 14 minutes. It stopped after epoch 11 because validation loss had not improved for three epochs, and it restored the weights from epoch 8, the best one. **This is the model the live site serves.**
 
 Training writes to the same `models/` and `outputs/` files as the quick experiment, so back up those folders before running it again if you want to keep the earlier results.
 
@@ -521,7 +523,7 @@ To reuse an existing downloaded archive:
 python scripts/download_data.py --skip-download
 ```
 
-To create a smaller development dataset:
+To create the smaller development dataset used for the reported experiments:
 
 ```bash
 python scripts/download_data.py --skip-download --lines-per-source 15000
@@ -598,7 +600,7 @@ The application loads the model specified by:
 config.PRODUCTION_MODEL
 ```
 
-The default production model is:
+The default model is:
 
 ```python
 PRODUCTION_MODEL = "gru"
@@ -619,7 +621,7 @@ uvicorn app:app --reload
 PRODUCTION_MODEL=lstm uvicorn app:app --reload
 ```
 
-The application status bar displays the currently loaded model and vocabulary size.
+The application status line displays the currently loaded model and vocabulary size.
 
 ## API
 
@@ -629,34 +631,32 @@ The prediction endpoint is:
 POST /api/predict
 ```
 
-Example request:
+Example request (mid word, six suggestions):
 
 ```bash
 curl -X POST http://localhost:8000/api/predict \
   -H "Content-Type: application/json" \
-  -d '{"text": "i want to go to the ", "k": 5}'
+  -d '{"text": "My name is Subin Thapa. I love Stock Mar", "k": 6}'
 ```
 
-Example response (shape shown; probability and latency values shortened):
-
-<!-- TODO: replace with a real response copied from your running app -->
+Example response from the live app (probabilities rounded; latency varies by machine):
 
 ```json
 {
   "suggestions": [
-    {
-      "word": "world",
-      "probability": 0.0
-    },
-    {
-      "word": "same",
-      "probability": 0.0
-    }
+    {"word": "market", "probability": 0.24},
+    {"word": "marketing", "probability": 0.11},
+    {"word": "markets", "probability": 0.10},
+    {"word": "marathon", "probability": 0.077},
+    {"word": "marks", "probability": 0.061},
+    {"word": "markers", "probability": 0.049}
   ],
-  "mode": "next",
-  "latency_ms": 0.0
+  "mode": "complete",
+  "latency_ms": 1295.27
 }
 ```
+
+`k` is the number of suggestions and can be 1 to 10. It defaults to 5.
 
 ### Prediction Modes
 
@@ -684,7 +684,7 @@ the API uses:
 mode = complete
 ```
 
-The system filters vocabulary candidates beginning with the provided prefix and ranks the possible completions.
+In completion mode the system keeps only the vocabulary words that begin with the typed prefix, renormalizes their probabilities, and ranks them.
 
 ## Health Check
 
@@ -694,7 +694,7 @@ The application exposes:
 GET /health
 ```
 
-This endpoint reports whether a model is loaded and ready to serve predictions.
+This endpoint reports whether a model is loaded and ready to serve predictions, and the vocabulary size.
 
 ## Docker
 
@@ -718,13 +718,26 @@ Stop the containers:
 docker compose down
 ```
 
-The Docker configuration mounts the local `models/` directory into the container as read only.
+The compose file mounts the local `models/` directory into the container as read only, so a newly trained model can be used after restarting the container without rebuilding the image. The `Dockerfile` also copies `models/gru.keras` and `models/tokenizer.json` into the image, which is what makes the model available on hosts that cannot mount a folder.
 
-This means a newly trained model can be used after restarting the container without rebuilding the image.
+## Deployment
+
+The live demo is split into two services:
+
+| Part | Host | Details |
+|---|---|---|
+| Backend and model | Render (Docker) | Built from the `Dockerfile` in this repository |
+| Frontend | Vercel | Static files from the `frontend/` folder (Root Directory `frontend`, Framework Preset `Other`) |
+
+The frontend finds the backend through `window.API_BASE`, set in `frontend/index.html`. The backend only accepts browser requests from the addresses listed in the `ALLOWED_ORIGINS` environment variable (comma separated, no trailing slashes). If the live page shows an offline or waking up status for more than a minute or two, check that variable and that `window.API_BASE` points at the Render address.
+
+The backend also limits TensorFlow to one thread, because free tier containers receive only a fraction of a CPU core. This setting has not been benchmarked on its own.
+
+This is a demonstration deployment on free tiers. It has no monitoring, rate limiting, or authentication.
 
 ## Testing
 
-Run the complete test suite:
+Run the complete test suite (45 tests):
 
 ```bash
 pytest -q
@@ -864,6 +877,8 @@ This helps produce reproducible dataset splits and vocabulary construction.
 
 The live deployment splits the application into two independently hosted pieces. The backend (FastAPI, in `app.py`) is deployed to Render and exposes `/api/predict` and `/health`. The frontend (in `frontend/`) is a plain HTML, CSS, and JavaScript site deployed to Vercel that calls the backend over CORS. The backend's `CORSMiddleware` allow list is controlled by the `ALLOWED_ORIGINS` environment variable, which includes the live Vercel URL.
 
+The editor draws the top suggestion as faded text after the typed text. A hidden mirror element with identical typography sits behind the textarea, and the suggestion only shows while it still matches the current text, so pressing Tab never accepts a stale guess.
+
 ## Notebook Workflow
 
 The notebooks provide the experimental workflow with explanations, plots, and intermediate results.
@@ -878,7 +893,7 @@ Run them in this order:
 05_comparison.ipynb
 ```
 
-The notebooks cover exploratory data analysis, preprocessing, model training, and architecture comparison.
+The notebooks cover exploratory data analysis, preprocessing, model training, and architecture comparison. They are configured for the quick CPU experiment, so re-running `04_gru.ipynb` trains the small GRU and overwrites `models/gru.keras`.
 
 ## Hyperparameters
 
@@ -886,19 +901,19 @@ The main configuration values are defined in `config.py`.
 
 | Parameter | Default | Quick Experiment | Larger Model Experiment | Purpose |
 |---|---:|---:|---:|---|
-| `SEQ_LEN` | 6 | 5 | 10 | Number of previous words used as context |
+| `SEQ_LEN` | 5 | 5 | 10 | Number of previous words used as context |
 | `MAX_VOCAB` | 10,000 | 10,000 | 10,000 | Maximum vocabulary size |
 | `MIN_FREQ` | 2 | 2 | 2 | Minimum word frequency |
-| `EMBED_DIM` | 128 | 64 | 128 | Word embedding dimension |
-| `UNITS` | 256 | 64 | 256 | Recurrent layer width |
-| `EPOCHS` | 30 | 8 | 30 | Maximum training epochs |
-| `BATCH_SIZE` | 128 | 256 | 128 | Samples processed per batch |
+| `EMBED_DIM` | 64 | 64 | 128 | Word embedding dimension |
+| `UNITS` | 64 | 64 | 256 | Recurrent layer width |
+| `EPOCHS` | 8 | 8 | 30 | Maximum training epochs |
+| `BATCH_SIZE` | 256 | 256 | 256 | Samples processed per batch |
 
 Major configuration values can be overridden using environment variables or command line arguments.
 
 ## Reproducibility
 
-A complete experiment can be reproduced using the following workflow.
+The quick comparison can be reproduced with the following workflow.
 
 Download the dataset:
 
@@ -906,7 +921,7 @@ Download the dataset:
 python scripts/download_data.py
 ```
 
-Create the reduced corpus for a faster experiment:
+Create the reduced corpus used for the reported experiments:
 
 ```bash
 python scripts/download_data.py --skip-download --lines-per-source 15000
@@ -926,6 +941,12 @@ Run the comparison notebook:
 
 ```text
 notebooks/05_comparison.ipynb
+```
+
+To reproduce the larger GRU that the live site serves:
+
+```bash
+python -m src.train --model gru --seq-len 10 --units 256 --embed-dim 128 --epochs 30
 ```
 
 The resulting metrics and plots are written to:
@@ -953,11 +974,9 @@ Exploratory Data Analysis
         ↓
 Text Cleaning
         ↓
-Tokenization
-        ↓
-Vocabulary Construction
-        ↓
 Train / Validation / Test Split
+        ↓
+Tokenization and Vocabulary Construction
         ↓
 Sliding Window Dataset
         ↓
@@ -973,7 +992,7 @@ FastAPI Inference
         ↓
 Web Application
         ↓
-Docker Deployment
+Docker and Cloud Deployment
         ↓
 Automated Testing
         ↓
@@ -987,16 +1006,17 @@ The project brings together machine learning, natural language processing, model
 Possible directions for extending the system include:
 
 1. Training on the full 450,000-line corpus
-2. Longer context windows
-3. Larger recurrent architectures
-4. Improved text normalization
-5. Beam search based decoding
-6. Transformer based language models
-7. Improved prefix completion ranking
-8. Model quantization
-9. GPU optimized training
-10. Production scale inference optimization
-11. Larger model training for LSTM and SimpleRNN, run with several seeds, to complete a fair three way comparison at the longer context window
+2. Larger LSTM and SimpleRNN runs, with several seeds each, to complete a fair three way comparison at the longer context window
+3. Baselines (most frequent word and a bigram model) to show how much the neural network adds
+4. An evaluation that excludes `<unk>` targets, matching what the app can actually suggest
+5. Keystroke savings as an additional metric
+6. A proper latency benchmark, with and without the single thread setting
+7. Smaller model files (saving checkpoints without optimizer state)
+8. Beam search based decoding
+9. Improved prefix completion ranking
+10. Transformer based language models
+11. Model quantization
+12. Monitoring and rate limiting for a real deployment
 
 ## License
 
