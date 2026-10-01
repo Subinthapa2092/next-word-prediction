@@ -1,53 +1,4 @@
-<!-- <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f2f7f4">
-  <title>Next Word Predictor</title>
-  <meta name="description" content="Type a sentence and see the words a GRU language model thinks come next.">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="wrap">
-    <header class="top">
-      <span class="brand">Nextword</span>
-      <button id="aboutBtn" class="link-btn" type="button">About</button>
-    </header>
-
-    <main>
-      <h1>Type a sentence. See what comes next.</h1>
-
-      <label class="sr-only" for="editor">Your text</label>
-      <div class="field">
-        <div id="mirror" class="mirror" aria-hidden="true"></div>
-        <textarea id="editor" rows="3" maxlength="500" placeholder="I want to go to the" autofocus spellcheck="false" autocomplete="off"></textarea>
-      </div>
-      <p class="hint">Tap a word to accept it<span class="tab-only">, or press <kbd>Tab</kbd> to take the faded one</span>.</p>
-
-      <div id="list" class="list" role="listbox" aria-label="Suggested words" aria-live="polite">
-        <p class="msg">Suggestions appear here as you type.</p>
-      </div>
-
-      <p class="status" id="status">GRU</p>
-    </main>
-  </div>
-
-  <dialog id="about" aria-labelledby="about-title">
-    <h2 id="about-title">About</h2>
-    <p>Nextword suggests the next word as you type, like a phone keyboard. A GRU neural network trained on blogs, news and tweets from the SwiftKey corpus ranks the most likely words.</p>
-    <p>If you stop in the middle of a word, it suggests ways to finish it instead.</p>
-    <p><a href="https://github.com/Subinthapa2092/next-word-prediction" target="_blank" rel="noopener">See the code on GitHub</a></p>
-    <button id="aboutClose" type="button">Close</button>
-  </dialog>
-
-  <script>window.API_BASE = "https://YOUR_HF_USERNAME-next-word-prediction.hf.space";</script>
-  <script src="app.js" defer></script>
-</body>
-</html> -->
+<!-- 
 <!doctype html>
 <html lang="en">
 <head>
@@ -93,6 +44,125 @@
       <p class="hint">
         Tap a word to accept it
         <span class="tab-only">, or press <kbd>Tab</kbd> to take the faded one</span>.
+      </p>
+
+      <div
+        id="list"
+        class="list"
+        role="listbox"
+        aria-label="Suggested words"
+        aria-live="polite"
+      >
+        <p class="msg">Suggestions appear here as you type.</p>
+      </div>
+
+      <p class="status" id="status">GRU</p>
+    </main>
+  </div>
+
+  <dialog id="about" aria-labelledby="about-title">
+    <h2 id="about-title">About</h2>
+
+    <p>
+      Nextword suggests the next word as you type, like a phone keyboard.
+      A GRU neural network trained on blogs, news and tweets from the
+      SwiftKey corpus ranks the most likely words.
+    </p>
+
+    <p>
+      If you stop in the middle of a word, it suggests ways to finish it instead.
+    </p>
+
+    <p>
+      <a
+        href="https://github.com/Subinthapa2092/next-word-prediction"
+        target="_blank"
+        rel="noopener"
+      >
+        See the code on GitHub
+      </a>
+    </p>
+
+    <button id="aboutClose" type="button">Close</button>
+  </dialog>
+
+  Render backend -->
+  <!-- <script>
+    window.API_BASE = "https://next-word-prediction-f3tv.onrender.com";
+  </script>
+
+  <script src="app.js" defer></script>
+</body>
+</html> -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+  <meta name="theme-color" content="#f2f7f4">
+
+  <title>Next Word Predictor</title>
+
+  <meta
+    name="description"
+    content="Type a sentence and see what comes next with a live GRU-powered next-word predictor."
+  >
+
+  <!-- Social / WhatsApp preview -->
+  <meta property="og:title" content="Next Word Predictor">
+  <meta
+    property="og:description"
+    content="Try the live next-word predictor and see what word comes next."
+  >
+  <meta
+    property="og:url"
+    content="https://next-word-prediction-frontend.vercel.app/"
+  >
+  <meta property="og:type" content="website">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;800&display=swap"
+    rel="stylesheet"
+  >
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="wrap">
+    <header class="top">
+      <span class="brand">Nextword</span>
+      <button id="aboutBtn" class="link-btn" type="button">About</button>
+    </header>
+
+    <main>
+      <h1>Type a sentence. See what comes next.</h1>
+
+      <label class="sr-only" for="editor">Your text</label>
+
+      <div class="field">
+        <div id="mirror" class="mirror" aria-hidden="true"></div>
+
+        <textarea
+          id="editor"
+          rows="3"
+          maxlength="500"
+          placeholder="I want to go to the"
+          autofocus
+          spellcheck="false"
+          autocomplete="off"
+        ></textarea>
+      </div>
+
+      <p class="hint">
+        Tap a word to accept it
+        <span class="tab-only">
+          , or press <kbd>Tab</kbd> to take the faded one
+        </span>.
       </p>
 
       <div
